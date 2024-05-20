@@ -46,6 +46,7 @@ contract MultiSigWallet {
     event ConfirmTransaction(address indexed owner, uint256 indexed transactionId);
     event RevokeConfirmation(address indexed owner, uint256 indexed transactionId);
     event ExecuteTransaction(address indexed owner, uint256 indexed transactionId);
+    event DeployContract(address indexed owner, address indexed contractAddress);
 
     constructor(address[] memory _owners, uint256 _required) {
         require(_owners.length > 0, "Owners required");
@@ -113,5 +114,17 @@ contract MultiSigWallet {
     function revokeConfirmation(uint256 transactionId) public onlyOwner confirmed(transactionId, msg.sender) notExecuted(transactionId) {
         confirmations[transactionId][msg.sender] = false;
         emit RevokeConfirmation(msg.sender, transactionId);
+    }
+
+    function deployContract(bytes memory bytecode, bytes32 salt) public onlyOwner returns (address) {
+        address newContract;
+        assembly {
+            newContract := create2(0, add(bytecode, 0x20), mload(bytecode), salt)
+            if iszero(extcodesize(newContract)) {
+                revert(0, 0)
+            }
+        }
+        emit DeployContract(msg.sender, newContract);
+        return newContract;
     }
 }
